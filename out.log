@@ -1,0 +1,32 @@
+Generating forward primers..
+15704 of 1000000 random 24mers passed initial checks.
+Aligning primers..
+Generated 14363 forward primers.
+
+Generating forward spacers..
+456 of 1000 random 24mers passed initial checks.
+Generated 456 forward spacers.
+
+Generating tag spacers..
+19635 of 100000 random 16mers passed initial checks.
+Generated 19635 tag spacers.
+
+Generating tag primers..
+15398 of 1000000 random 24mers passed initial checks.
+Aligning primers..
+Generated 13986 tag primers.
+
+Generating reverse spacers..
+265 of 1000 random 8mers passed initial checks.
+Generated 265 reverse spacers.
+
+Generating reverse primers..
+15440 of 1000000 random 24mers passed initial checks.
+Aligning primers..
+Generated 14116 reverse primers.
+
+Determining best outer primer pair..
+Checking 13986 final constructs..
+Finished! Generated 13986 final constructs.
+
+Completed in 202.77224111557007 seconds.
