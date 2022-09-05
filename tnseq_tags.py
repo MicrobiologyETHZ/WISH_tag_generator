@@ -86,7 +86,7 @@ def check_hairpins(seq):
     else:
         return(True)
 
-def run_bwa(seqs):
+def run_bwa(seqs, path='.'):
     # Output seqs to a fasta file for alignment
     with open("temp.fasta",'w') as fo:
         for seq in seqs:
@@ -94,7 +94,7 @@ def run_bwa(seqs):
 
     # Align seqs fasta file against a target file with BWA, allowing 2 errors
     sys.stdout.write("Aligning primers..\n")
-    aln = subprocess.check_output("bwa aln -t 32 -n 2 db/db.fasta temp.fasta 2> /dev/null | bwa samse db/db.fasta - temp.fasta 2> /dev/null",shell=True,executable="/bin/bash").decode()
+    aln = subprocess.check_output(f"bwa aln -t 32 -n 2 {path}/db/db.fasta temp.fasta 2> /dev/null | bwa samse {path}/db/db.fasta - temp.fasta 2> /dev/null",shell=True,executable="/bin/bash").decode()
     aln = aln.strip().split("\n")
     aln = [x.strip().split("\t") for x in aln if x[0]!='@']
     aln = {x[0]:x for x in aln}
@@ -130,6 +130,14 @@ def check_pair_primer3(fwd,rev):
         pair_penalty = float(param['PRIMER_PAIR_0_PENALTY'])
     return((fwd,rev,pair_penalty))
 
+def check_illumina_primers(fwd, rev,
+                           illumina_fwd="TCGTCGGCAGCGTCAGATGTGTATAAGAGACAG",
+                           illumina_rev="GTCTCGTGGGCTCGGAGATGTGTATAAGAGACAG"):
+    pcr1_fwd = illumina_fwd + fwd
+    pcr1_rev = illumina_rev + rev
+    return check_pair_primer3(pcr1_fwd, pcr1_rev)
+
+
 def check_final_construct(fwd_primer, fwd_spacer, tag_spacer, tag_primer, rev_spacer, rev_primer):
     construct = ''.join([fwd_primer, fwd_spacer, tag_spacer, fast_rc(tag_primer), rev_spacer, fast_rc(rev_primer)])
 
@@ -157,7 +165,7 @@ def check_final_construct(fwd_primer, fwd_spacer, tag_spacer, tag_primer, rev_sp
     
     return((construct, fwd_primer, fwd_spacer, tag_spacer, tag_primer, rev_spacer, rev_primer, outer_penalty, inner_penalty))
 
-def gen_primers(l,n,pool):
+def gen_primers(l,n,pool, path='.'):
     seqs = map(lambda x: gen_primer(l), range(n))
     seqs = filter(check_gc, seqs)
     seqs = filter(check_palindrome, seqs)
@@ -165,7 +173,7 @@ def gen_primers(l,n,pool):
     seqs = filter(check_hairpins, seqs)
     seqs = list(dict.fromkeys(seqs))
     sys.stdout.write("{} of {} random {}mers passed initial checks.\n".format(len(seqs), n, l))
-    aln = run_bwa(seqs)
+    aln = run_bwa(seqs, path)
     seqs = filter(lambda x: check_misprime(x, aln), seqs)
     seqs = pool.map(check_primer_primer3, seqs)
     seqs = sorted(list(seqs), key=lambda x:x[1])
@@ -179,66 +187,69 @@ def gen_spacers(l,n):
     sys.stdout.write("{} of {} random {}mers passed initial checks.\n".format(len(seqs), n, l))
     return(list(seqs))
 
-# Set up parallelisation
-pool = mp.Pool(32)
 
-# Generate a Fwd Primer
-sys.stdout.write("Generating forward primers..\n")
-fwd_primers = gen_primers(24,1000000,pool)
-sys.stdout.write("Generated {} forward primers.\n\n".format(len(fwd_primers)))
-sys.stdout.flush()
 
-# Generate a spacer
-sys.stdout.write("Generating forward spacers..\n")
-fwd_spacers = gen_spacers(24,1000)
-sys.stdout.write("Generated {} forward spacers.\n\n".format(len(fwd_spacers)))
-sys.stdout.flush()
+if __name__ == "__main__":
+    # Set up parallelisation
+    pool = mp.Pool(32)
 
-# Generate first part of tag
-sys.stdout.write("Generating tag spacers..\n")
-tag_spacers = gen_spacers(16,100000)
-sys.stdout.write("Generated {} tag spacers.\n\n".format(len(tag_spacers)))
-sys.stdout.flush()
+    # Generate a Fwd Primer
+    sys.stdout.write("Generating forward primers..\n")
+    fwd_primers = gen_primers(24,1000000,pool)
+    sys.stdout.write("Generated {} forward primers.\n\n".format(len(fwd_primers)))
+    sys.stdout.flush()
 
-# Generate tag primers
-sys.stdout.write("Generating tag primers..\n")
-tag_primers = gen_primers(24,1000000,pool)
-sys.stdout.write("Generated {} tag primers.\n\n".format(len(tag_primers)))
-sys.stdout.flush()
+    # Generate a spacer
+    sys.stdout.write("Generating forward spacers..\n")
+    fwd_spacers = gen_spacers(24,1000)
+    sys.stdout.write("Generated {} forward spacers.\n\n".format(len(fwd_spacers)))
+    sys.stdout.flush()
 
-# Generate a spacer
-sys.stdout.write("Generating reverse spacers..\n")
-rev_spacers = gen_spacers(8,1000)
-sys.stdout.write("Generated {} reverse spacers.\n\n".format(len(rev_spacers)))
-sys.stdout.flush()
+    # Generate first part of tag
+    sys.stdout.write("Generating tag spacers..\n")
+    tag_spacers = gen_spacers(16,100000)
+    sys.stdout.write("Generated {} tag spacers.\n\n".format(len(tag_spacers)))
+    sys.stdout.flush()
 
-# Generate a Rev Primer
-sys.stdout.write("Generating reverse primers..\n")
-rev_primers = gen_primers(24,1000000,pool)
-sys.stdout.write("Generated {} reverse primers.\n\n".format(len(rev_primers)))
-sys.stdout.flush()
+    # Generate tag primers
+    sys.stdout.write("Generating tag primers..\n")
+    tag_primers = gen_primers(24,1000000,pool)
+    sys.stdout.write("Generated {} tag primers.\n\n".format(len(tag_primers)))
+    sys.stdout.flush()
 
-# Take the best 10 fwd and rev primers, pair and check
-sys.stdout.write("Determining best outer primer pair..\n")
-fwd_rev_pairs = itertools.product(fwd_primers[0:10],rev_primers[0:10])
-fwd_rev_pairs = pool.starmap(check_pair_primer3,[(x[0][0],x[1][0]) for x in fwd_rev_pairs])
-fwd_rev_pairs = sorted(list(fwd_rev_pairs), key=lambda x:x[2])
+    # Generate a spacer
+    sys.stdout.write("Generating reverse spacers..\n")
+    rev_spacers = gen_spacers(8,1000)
+    sys.stdout.write("Generated {} reverse spacers.\n\n".format(len(rev_spacers)))
+    sys.stdout.flush()
 
-best_fwd_primer = fwd_rev_pairs[0][0]
-best_rev_primer = fwd_rev_pairs[0][1]
+    # Generate a Rev Primer
+    sys.stdout.write("Generating reverse primers..\n")
+    rev_primers = gen_primers(24,1000000,pool)
+    sys.stdout.write("Generated {} reverse primers.\n\n".format(len(rev_primers)))
+    sys.stdout.flush()
 
-# Construct and check full sequences
-sys.stdout.write("Checking {} final constructs..\n".format(min([len(tag_spacers),len(tag_primers)])))
-final_constructs = pool.starmap(check_final_construct,[(best_fwd_primer,fwd_spacers[0],x[0],x[1][0],rev_spacers[0],best_rev_primer) for x in zip(tag_spacers,tag_primers)])
-final_constructs = sorted(list(final_constructs), key=lambda x:x[8])
-sys.stdout.write("Finished! Generated {} final constructs.\n\n".format(len(final_constructs)))
+    # Take the best 10 fwd and rev primers, pair and check
+    sys.stdout.write("Determining best outer primer pair..\n")
+    fwd_rev_pairs = itertools.product(fwd_primers[0:10],rev_primers[0:10])
+    fwd_rev_pairs = pool.starmap(check_pair_primer3,[(x[0][0],x[1][0]) for x in fwd_rev_pairs])
+    fwd_rev_pairs = sorted(list(fwd_rev_pairs), key=lambda x:x[2])
 
-# Output
-with open("results.txt", 'w') as fo:
-    fo.write("Full Sequence\tFwd Primer\tFwd Spacer\tTag Spacer\tTag Primer\tRev Spacer\tRev Primer\tOuter Score\tTag Score\n")
-    for fc in final_constructs:
-        for x in fc:
-            fo.write("{}\t".format(x))
-        fo.write("\n")
+    best_fwd_primer = fwd_rev_pairs[0][0]
+    best_rev_primer = fwd_rev_pairs[0][1]
 
-sys.stdout.write("Completed in {} seconds.\n".format(time.time()-start))
+    # Construct and check full sequences
+    sys.stdout.write("Checking {} final constructs..\n".format(min([len(tag_spacers),len(tag_primers)])))
+    final_constructs = pool.starmap(check_final_construct,[(best_fwd_primer,fwd_spacers[0],x[0],x[1][0],rev_spacers[0],best_rev_primer) for x in zip(tag_spacers,tag_primers)])
+    final_constructs = sorted(list(final_constructs), key=lambda x:x[8])
+    sys.stdout.write("Finished! Generated {} final constructs.\n\n".format(len(final_constructs)))
+
+    # Output
+    with open("results.txt", 'w') as fo:
+        fo.write("Full Sequence\tFwd Primer\tFwd Spacer\tTag Spacer\tTag Primer\tRev Spacer\tRev Primer\tOuter Score\tTag Score\n")
+        for fc in final_constructs:
+            for x in fc:
+                fo.write("{}\t".format(x))
+            fo.write("\n")
+
+    sys.stdout.write("Completed in {} seconds.\n".format(time.time()-start))
