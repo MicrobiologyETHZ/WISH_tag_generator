@@ -21,9 +21,11 @@ Many primers are generated then filtered to ensure that:
 * the primer is not a palindrome, i.e.: identical in the reverse complement
 * no base occurs more than 3 times in a row, i.e.: no AAAA
 * no pair of bases occurs more than 3 times in a row, i.e.: no ACACACAC
-* no triplet of bases occurs anywhere in the reverse complement
+* no triplet of bases occurs anywhere in the reverse complement (to prevent hairpins)
 * there is no alignment with up to 2 mismatches in a specified sequence database
 * the melting temperature according to Primer3 is between 59.5 and 62.5
+
+The primers are then appended to the Illumina Nextera transposase adapters and again filtered so that no triplet of bases occurs anywhere in the reverse complement (to prevent hairpins).
 
 Primers were then sorted from least to most penalty according to Primer3. The best 10 each of Fwd and Rev primers were paired in all possible combinations, scored as a pair with Primer3 and the pair with the least penalty chosen for the final constructs.
 
@@ -34,5 +36,3 @@ Spacers are composed of however many base pairs randomly chosen from [ACGT] then
 The final constructs are then once again checked for mispriming with two rounds of Primer3 (Fwd-Rev and Fwd-Tag), then sorted by their Primer3 penalties.
 
 The method does not test final constructs against each other for possible hybridisation.
-
-Filtering against Illumina primers?
