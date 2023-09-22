@@ -75,9 +75,7 @@ def check_tm(seq):
 def check_palindrome(seq):
     return(fast_rc(seq)!=seq)
 
-def check_hairpins(seq, adapter=None):
-    if adapter is not None:
-        seq = adapter+seq
+def check_hairpins(seq):
     trimers = []
     rc_trimers = []
     for offset in range(0,3):
@@ -165,8 +163,6 @@ def gen_primers(l,n,pool):
     seqs = filter(check_palindrome, seqs)
     seqs = filter(check_runs, seqs)
     seqs = filter(check_hairpins, seqs)
-    seqs = filter(lambda x: check_hairpins(x, 'TCGTCGGCAGCGTCAGATGTGTATAAGAGACAG'))
-    seqs = filter(lambda x: check_hairpins(x, 'GTCTCGTGGGCTCGGAGATGTGTATAAGAGACAG'))
     seqs = list(dict.fromkeys(seqs))
     sys.stdout.write("{} of {} random {}mers passed initial checks.\n".format(len(seqs), n, l))
     aln = run_bwa(seqs)
