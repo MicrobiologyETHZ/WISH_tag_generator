@@ -1,6 +1,6 @@
 # WISH tag generator
 
-![Design and principles of WISH tag construction](https://github.com/MicrobiologyETHZ/WISH_tag_generator/blob/main/Figure1.svg?raw=true)
+![Design and principles of WISH tag construction](https://github.com/MicrobiologyETHZ/WISH_tag_generator/blob/main/Figure1.jpg?raw=true)
 
 A program to generate Wild-type Isogenic Standardized Hybrid (WISH) tags for QPCR and Illumina sequencing with the following structure:
 
